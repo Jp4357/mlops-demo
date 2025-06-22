@@ -1,0 +1,15 @@
+stages:
+  load_data:
+    cmd: python src/data/load_data.py
+    outs:
+      - data/california_housing.csv
+  
+  train_model:
+    cmd: python src/models/train.py
+    deps:
+      - data/california_housing.csv
+      - src/models/train.py
+    outs:
+      - models/housing_model.pkl
+    metrics:
+      - metrics.json

@@ -1,0 +1,94 @@
+# .github/workflows/mlops-pipeline.yml
+name: MLOps Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-train:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Set up MLflow
+        run: |
+          export MLFLOW_TRACKING_URI=sqlite:///mlflow.db
+          mlflow server --host 0.0.0.0 --port 5000 &
+          sleep 10
+
+      - name: Run data quality tests
+        run: |
+          python src/data/load_data.py
+          pytest tests/test_data.py -v
+
+      - name: Train model
+        run: |
+          python src/models/train.py
+
+      - name: Run model tests
+        run: |
+          pytest tests/test_model.py -v
+
+      - name: Check model performance
+        run: |
+          python -c "
+          import json
+          with open('metrics.json') as f:
+              metrics = json.load(f)
+          assert metrics['test_r2'] >= 0.6, f'Model performance too low: {metrics[\"test_r2\"]}'
+          print(f'✅ Model passed performance check: R²={metrics[\"test_r2\"]:.3f}')
+          "
+
+      - name: Save model artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: model-artifacts
+          path: |
+            models/
+            metrics.json
+
+  deploy-staging:
+    needs: test-and-train
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Download model artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: model-artifacts
+
+      - name: Deploy to staging
+        run: |
+          echo "🚀 Deploying to staging environment"
+          # Add actual deployment commands here
+
+  deploy-production:
+    needs: test-and-train
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Download model artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: model-artifacts
+
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying to production environment"
+          # Add actual deployment commands here

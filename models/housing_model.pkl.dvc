@@ -1,0 +1,5 @@
+outs:
+- md5: ef05692f5886e0c3f93c433e9b8c1947
+  size: 10300993
+  hash: md5
+  path: housing_model.pkl
